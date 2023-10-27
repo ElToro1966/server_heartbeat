@@ -1,0 +1,14 @@
+[Unit]
+Description=Server Heartbeat Service
+After=multi-user.target
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+User=---user---
+ExecStart=/usr/bin/python3 /usr/bin/server_heartbeat/main.py
+Restart=on-abort
+StandardInput=tty-force
+
+[Install]
+WantedBy=multi-user.target
