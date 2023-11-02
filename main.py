@@ -41,8 +41,7 @@ def log_status(server, response):
 
 async def fail_check(server):
     while True:
-        http_code = requests.get(server.address).status_code
-        if http_code == 200:
+        if server.status() == 200:
             logging.info(info_message + server.name + " is back up!")
             break
         else:
@@ -54,10 +53,8 @@ async def main():
     while True:
         for server in servers:
             current_server = httpserver.HttpServer(server)
-            http_code = requests.get(current_server.address).status_code
-            log_status(current_server, http_code)
-            if http_code != 200:
-                logging.error(down_check_message + current_server.name + " is down!")
+            log_status(current_server, current_server.status())
+            if current_server.status() != 200:
                 fail_check(current_server)
             await asyncio.sleep(current_server.wait)
 
