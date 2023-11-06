@@ -9,7 +9,6 @@ import logging
 import asyncio
 import os
 import time
-import requests
 import httpserver
 
 
@@ -20,7 +19,11 @@ def path_to_cwd(filename):
 
 config_file = path_to_cwd("config.ini")
 config = configparser.ConfigParser()
-config.read(config_file)
+try:
+    config.read(config_file)
+except OSError:
+    print("Config file not found, exiting.")
+    exit(1)
 
 log_file = config["logging"]["log_file"]
 info_message = config["logging"]["info_message"]
