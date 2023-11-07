@@ -52,16 +52,18 @@ async def fail_check(server):
         await asyncio.sleep(server.down_check_interval)
 
 
-async def main():
-    while True:
-        for server in servers:
-            current_server = httpserver.HttpServer(server)
-            log_status(current_server, current_server.status())
-            if current_server.status() != 200:
-                fail_check(current_server)
-            await asyncio.sleep(current_server.wait)
+async def server_up_check(server):
+    current_server = httpserver.HttpServer(server)
+    log_status(current_server, current_server.status())
+    if current_server.status() != 200:
+        fail_check(current_server)
+    await asyncio.sleep(current_server.wait)
+
+
+async def main(*servers):
+    await asyncio.gather(*[server_up_check(server) for server in servers])
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(main(*servers))
