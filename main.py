@@ -53,11 +53,12 @@ async def fail_check(server):
 
 
 async def server_up_check(server):
-    current_server = httpserver.HttpServer(server)
-    log_status(current_server, current_server.status())
-    if current_server.status() != 200:
-        fail_check(current_server)
-    await asyncio.sleep(current_server.wait)
+    while True:
+        current_server = httpserver.HttpServer(server)
+        log_status(current_server, current_server.status())
+        if current_server.status() != 200:
+            fail_check(current_server)
+        await asyncio.sleep(current_server.wait)
 
 
 async def main(*servers):

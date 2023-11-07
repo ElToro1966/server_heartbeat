@@ -1,4 +1,4 @@
-# Log rotation scripot for the log files of the application
+# Log rotation script for the log files of the application
 # To be run with cron or similar
 # cron entry example (run every day at midnight):
 # 0 0 * * * python3 /path/to/log_rotation.py
