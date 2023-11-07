@@ -1,5 +1,7 @@
 # Log rotation scripot for the log files of the application
 # To be run with cron or similar
+# cron entry example (run every day at midnight):
+# 0 0 * * * python3 /path/to/log_rotation.py
 
 import configparser
 import logging.handlers
@@ -25,6 +27,6 @@ log_file_max_bytes = config["logging"]["log_file_max_bytes"]
 log_file_backup_count = config["logging"]["log_file_backup_count"]
 server_logger = logging.getLogger("ServerLogger")
 server_logger.setLevel(logging.INFO)
-handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=log_file_max_bytes,
-                                               backupCount=log_file_backup_count)
+handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=int(log_file_max_bytes),
+                                               backupCount=int(log_file_backup_count))
 server_logger.addHandler(handler)
