@@ -9,7 +9,6 @@ import logging
 import logging.handlers
 import asyncio
 import os
-import time
 import httpserver
 
 
@@ -28,21 +27,10 @@ def get_config(config_file):
     return config
 
 
-def create_rotating_log_file(log_file, log_file_max_bytes, log_file_backup_count):
-    logging.basicConfig(format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
-                        datefmt='%Y-%m-%d:%H:%M:%S',
-                        level=logging.INFO)
-    server_logger = logging.getLogger("ServerLogger")
-    handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=int(log_file_max_bytes),
-                                                   backupCount=int(log_file_backup_count))
-    server_logger.addHandler(handler)
-
-
 config_file = get_config("config.ini")
 log_file = config_file["logging"]["log_file"]
 log_file_max_bytes = int(config_file["logging"]["log_file_max_bytes"])
 log_file_backup_count = int(config_file["logging"]["log_file_backup_count"])
-create_rotating_log_file(log_file, log_file_max_bytes, log_file_backup_count)
 
 info_message = config_file["logging"]["info_message"]
 error_message = config_file["logging"]["error_message"]
@@ -50,32 +38,44 @@ down_check_message = config_file["logging"]["down_check_message"]
 servers = config_file["servers"].items()
 
 
-def log_status(server, response):
-    message = str(time.ctime()) + " Checking server: " + server.name + " at address: " \
-              + server.address + " with wait time: " + str(server.wait) + " seconds. "
+def create_rotating_log_file(log_file, log_file_max_bytes, log_file_backup_count):
+    logging.basicConfig(filename=log_file, encoding="utf-8",
+                        format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
+                        datefmt='%Y-%m-%d:%H:%M:%S',
+                        level=logging.INFO)
+    server_logger = logging.getLogger("ServerLogger")
+    handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=int(log_file_max_bytes),
+                                                   backupCount=int(log_file_backup_count))
+    server_logger.addHandler(handler)
+    return server_logger
+
+
+def log_status(server, response, logger):
+    message = str(" Checking server: " + server.name + " at address: " \
+              + server.address + " with wait time: " + str(server.wait) + " seconds. ")
     if response == 200:
-        logging.info(message + server.name + " - " + info_message)
+        logger.info(message + server.name + " - " + info_message)
     else:
-        logging.error(message + server.name + " - " + error_message)
+        logger.error(message + server.name + " - " + error_message)
 
 
-async def fail_check(server):
+async def fail_check(server, logger):
     while True:
         if server.status() == 200:
-            logging.info(server.name + " - " + info_message)
+            logger.info(server.name + " - " + info_message)
             break
         else:
-            logging.error(server.name + " - " + down_check_message)
+            logger.error(server.name + " - " + down_check_message)
         await asyncio.sleep(server.down_check_interval)
 
 
 async def server_up_check(server):
+    logger = create_rotating_log_file(log_file, log_file_max_bytes, log_file_backup_count)
     while True:
         current_server = httpserver.HttpServer(server)
-        log_status(current_server, current_server.status())
-        print(current_server.status())
+        log_status(current_server, current_server.status(), logger)
         if current_server.status() != 200:
-            fail_check(current_server)
+            fail_check(current_server, logger)
         await asyncio.sleep(current_server.wait)
 
 
