@@ -29,8 +29,10 @@ def get_config(config_file):
 
 
 def create_rotating_log_file(log_file, log_file_max_bytes, log_file_backup_count):
+    logging.basicConfig(format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
+                        datefmt='%Y-%m-%d:%H:%M:%S',
+                        level=logging.INFO)
     server_logger = logging.getLogger("ServerLogger")
-    server_logger.setLevel(logging.INFO)
     handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=int(log_file_max_bytes),
                                                    backupCount=int(log_file_backup_count))
     server_logger.addHandler(handler)
