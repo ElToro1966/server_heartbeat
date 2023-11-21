@@ -4,6 +4,7 @@
 # Writes to a logfile if the server is not running.
 # Runs as a service, see service file for details.
 
+import aiohttp
 import configparser
 import logging
 import logging.handlers
@@ -12,15 +13,15 @@ import os
 import httpserver
 
 
-def path_to_cwd(filename):
+def get_path_to_cwd(filename):
     root_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(root_path, filename)
 
 
-def get_config(config_file):
+def get_config(cfg_file):
     config = configparser.ConfigParser()
     try:
-        config.read(path_to_cwd(config_file))
+        config.read(get_path_to_cwd(cfg_file))
     except OSError:
         print("Config file not found, exiting.")
         exit(1)
@@ -38,51 +39,64 @@ down_check_message = config_file["logging"]["down_check_message"]
 servers = config_file["servers"].items()
 
 
-def create_rotating_log_file(log_file, log_file_max_bytes, log_file_backup_count):
-    logging.basicConfig(filename=log_file, encoding="utf-8",
-                        format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
-                        datefmt='%Y-%m-%d:%H:%M:%S',
-                        level=logging.INFO)
+def create_rotating_log_file(logger_file, logger_file_max_bytes, logger_file_backup_count):
     server_logger = logging.getLogger("ServerLogger")
-    handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=int(log_file_max_bytes),
-                                                   backupCount=int(log_file_backup_count))
+    handler = logging.handlers.RotatingFileHandler(logger_file,
+                                                   maxBytes=int(logger_file_max_bytes),
+                                                   backupCount=int(logger_file_backup_count))
+    log_format = logging.Formatter('%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s')
+    handler.setFormatter(log_format)
+    server_logger.setLevel(logging.INFO)
+    server_logger.propagate = False
     server_logger.addHandler(handler)
     return server_logger
 
 
-def log_status(server, response, logger):
+def log_status(server, response, logger, failcheck=False):
     message = str(" Checking server: " + server.name + " at address: " \
-              + server.address + " with wait time: " + str(server.wait) + " seconds. ")
-    if response == 200:
-        logger.info(message + server.name + " - " + info_message)
-    else:
-        logger.error(message + server.name + " - " + error_message)
+              + server.address + " with wait time: " + str(server.wait)
+                  + " seconds. Response: " + str(response.status))
+    if response.status == 200:
+        logger.info(message + " - " + info_message)
+    elif not failcheck and response.status != 200:
+        logger.error(message + " - " + error_message)
+    elif failcheck and response.status != 200:
+        logger.error(message + " - "
+                     + down_check_message.format(server.down_check_interval))
 
 
-async def fail_check(server, logger):
+async def fail_check(current_server, logger):
     while True:
-        if server.status() == 200:
-            logger.info(server.name + " - " + info_message)
-            break
-        else:
-            logger.error(server.name + " - " + down_check_message)
-        await asyncio.sleep(server.down_check_interval)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(current_server.address) as response:
+                if response.status == 200:
+                    log_status(current_server, response, logger)
+                    break
+                else:
+                    log_status(current_server, response, logger, failcheck=True)
+                await asyncio.sleep(current_server.down_check_interval)
 
 
-async def server_up_check(server):
-    logger = create_rotating_log_file(log_file, log_file_max_bytes, log_file_backup_count)
+async def server_up_check(current_server, logger):
     while True:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(current_server.address) as response:
+                log_status(current_server, response, logger)
+                if response.status != 200:
+                    await fail_check(current_server, logger)
+                await asyncio.sleep(current_server.wait)
+
+
+async def main(http_servers):
+    logger = create_rotating_log_file(log_file, log_file_max_bytes,
+                                      log_file_backup_count)
+    for server in http_servers:
         current_server = httpserver.HttpServer(server)
-        log_status(current_server, current_server.status(), logger)
-        if current_server.status() != 200:
-            fail_check(current_server, logger)
-        await asyncio.sleep(current_server.wait)
+        asyncio.create_task(
+            *[server_up_check(current_server, logger)]
+        )
+    await asyncio.gather(*asyncio.all_tasks())
 
 
-async def main(*servers):
-    await asyncio.gather(*[server_up_check(server) for server in servers])
-
-
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    asyncio.run(main(*servers))
+    asyncio.run(main(servers))
