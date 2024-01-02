@@ -1,5 +1,5 @@
 import unittest
-from main import get_config, path_to_cwd, log_status, fail_check, server_up_check, create_rotating_log_file
+from main import get_config, get_path_to_cwd, log_status, fail_check, server_up_check, create_rotating_log_file
 import logging.handlers
 from os.path import exists
 import logging
