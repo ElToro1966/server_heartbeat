@@ -6,7 +6,7 @@ Conflicts=getty@tty1.service
 [Service]
 Type=simple
 User=---user---
-ExecStart=/usr/bin/python3 /usr/local/bin/server_heartbeat/main.py
+ExecStart=/usr/local/bin/server_heartbeat/venv/bin/python3 /usr/local/bin/server_heartbeat/main.py
 Restart=on-abort
 StandardInput=tty-force
 
