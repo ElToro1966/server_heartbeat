@@ -70,6 +70,7 @@ async def fail_check(current_server, logger):
         async with aiohttp.ClientSession() as session:
             async with session.get(current_server.address) as response:
                 if response.status == 200:
+                    log_status(current_server, response, logger)
                     break
                 else:
                     log_status(current_server, response, logger, failcheck=True)
